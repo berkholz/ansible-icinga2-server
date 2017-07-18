@@ -1,0 +1,79 @@
+---
+- name: install php7 and needed modules for icingaweb2
+  apt: name={{ item }} state=present
+  with_items:
+    - libapache2-mod-php7.0
+    - php-common
+    - php-curl
+    - php-gd
+    - php-gettext
+    - php-icinga
+    - php-intl
+    - php-ldap
+    - php-mysql
+    - php-xml
+    - php7.0
+    - php7.0-cli
+    - php7.0-common
+    - php7.0-curl
+    - php7.0-gd
+    - php7.0-intl
+    - php7.0-json
+    - php7.0-ldap
+    - php7.0-mysql
+    - php7.0-opcache
+    - php7.0-readline
+    - php7.0-xml
+  notify: 
+    - restart Apache
+
+#- name: disable unneeded php7 modules for icinga2
+#  command: /usr/sbin/phpdismod {{ item }}
+#  args:
+#    chdir: /etc/php/7.0/apache2
+#    removes: /etc/php/7.0/apache2/conf.d/*-{{ item }}.ini
+#  with_items:
+#    - calendar
+#    - exif
+#    - fileinfo
+#    - ftp
+#    - gettext
+#    - mcrypt
+#    - phar
+#    - posix
+#    - readline
+#    - shmop
+#    - wddx
+#  notify:
+#    - restart Apache
+
+- name: enable php7 modules for  icingaweb2
+  command: /usr/sbin/phpenmod {{ item }}
+  args:
+    chdir: /etc/php/7.0/apache2
+    creates: /etc/php/7.0/apache2/conf.d/*-{{ item }}.ini
+  with_items:
+    - opcache
+    - openssl
+  notify:
+    - restart Apache
+
+- name: deploy productive php.ini for Apache2 webserver
+  template: src=php.ini dest=/etc/php/7.0/apache2/php.ini owner=root group=root mode=0644
+  vars:
+    php_display_errors: "On"
+    php_display_startup_errors: "On"
+    php_error_log: "syslog"
+    php_max_execution_time: "1440"
+    php_max_file_uploads: "20"
+    php_max_input_time: "1440"
+    php_memory_limit: "64M"
+    php_post_max_size: "50M"
+    php_session_save_handler: "files"
+    php_session_save_path: "\"/var/lib/php/sessions\""
+    php_upload_max_filesize: "50M"
+  tags:
+    - phpini
+  notify:
+    - restart Apache
+

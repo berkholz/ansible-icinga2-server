@@ -1,0 +1,65 @@
+---
+##
+## system config
+##
+
+- name: set hostname
+  hostname: name={{ (ansible_hostname == "ubuntu") | ternary(hostname | default(ansible_hostname), ansible_hostname) }}
+ 
+- name: configure hostname
+  template: src=hostname dest=/etc/hostname
+
+- name: configure mailname
+  template: src=mailname dest=/etc/mailname
+
+- name: disable lxd-containers.service, because we don't have containers
+  service: name=lxd-containers.service state=stopped enabled=no
+  ignore_errors: yes
+
+##
+## 
+##
+- include: sudo.yml
+  tags:
+    - sudo
+
+- include: tools.yml
+  tags:
+    - tools
+
+- include: bash.yml
+  tags:
+    - bash
+
+- include: etckeeper.yml
+  tags:
+    - etckeeper
+
+- include: ipv6.yml
+  tags:
+    - ipv6
+
+- include: ntp.{{ ansible_distribution_release }}.yml
+  tags:
+    - ntp 
+
+- include: openssh-server.yml
+  tags:
+    - openssh-server
+
+- include: unattended-upgrades.yml
+  tags:
+    - unattended-upgrades
+
+- include: rsyslogd.yml
+  tags:
+    - rsyslog
+
+- include: screen.yml
+  tags:
+    - screen
+
+- include: ufw.yml
+  tags:
+    - ufw
+

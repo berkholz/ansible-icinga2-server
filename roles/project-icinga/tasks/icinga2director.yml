@@ -1,0 +1,34 @@
+---
+- name: create database for icinga2 director module 
+  mysql_db: name={{ icinga2director_db_name }}  state=present
+
+- name: create user for icinga director module database with appropriate rights
+  mysql_user: name={{ icinga2director_db_user_name }} host={{ icinga2director_db_host }} state=present priv="{{ icinga2director_db_name }}.*:ALL" password={{ icinga2director_db_user_pw }} update_password=always
+
+- name: add DB ressource for icinga2 director module
+  ini_file: dest=/etc/icingaweb2/resources.ini backup=yes option={{ item.option }} value={{ item.value }} state=present section="Director DB"
+  with_items:
+     - { option: 'type', value: '"db"' }
+     - { option: 'db', value: '"mysql"' }
+     - { option: 'host', value: "\"{{ icinga2director_db_host }}\"" }
+     - { option: 'dbname', value: "\"{{ icinga2director_db_name }}\"" }
+     - { option: 'username', value: "\"{{ icinga2director_db_user_name }}\"" }
+     - { option: 'password', value: "\"{{ icinga2director_db_user_pw }}\"" }
+     - { option: 'charset', value: "\"{{ icinga2director_db_encoding }}\"" }
+
+- name: clone icinga director module into icinga2 module path
+  git: repo=https://github.com/Icinga/icingaweb2-module-director.git dest=/usr/share/icingaweb2/modules/director
+
+- name: create config directory for icinga2 module director
+  file: path=/etc/icingaweb2/modules/director state=directory owner=www-data group=icingaweb2 mode=2770
+
+- name: configure db ressource for icinga2 director module
+  ini_file: dest=/etc/icingaweb2/modules/director/config.ini backup=yes option={{ item.option }} value={{ item.value }} state=present section="db" create=yes
+  with_items:
+     - { option: 'resource', value: '"Director DB"' }
+
+- name: create schema in db for icinga2 director module
+  command: icingacli director migration run --verbose
+
+- name: enable icinga2 director module in icingaweb2
+  command: icingacli module enable director

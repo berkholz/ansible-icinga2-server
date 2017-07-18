@@ -1,0 +1,13 @@
+---
+- name: install unattended upgrades
+  apt: name=unattended-upgrades state=latest
+
+- name: create 10periodic conf
+  template: src=10periodic.{{ ansible_distribution_release }} dest=/etc/apt/apt.conf.d/10periodic
+
+- name: create 50unattended-upgrades conf
+  template: src=50unattended-upgrades.{{ ansible_distribution_release }} dest=/etc/apt/apt.conf.d/50unattended-upgrades
+
+- name: create 20auto-upgrades conf
+  template: src=20auto-upgrades.{{ ansible_distribution_release }} dest=/etc/apt/apt.conf.d/20auto-upgrades
+  when: ansible_distribution_release == "xenial"

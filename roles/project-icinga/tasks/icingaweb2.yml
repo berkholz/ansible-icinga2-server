@@ -1,0 +1,135 @@
+---
+##
+## Installation
+##
+- name: import repo key for icingaweb2 
+  apt_key: url=http://packages.icinga.org/icinga.key id="C6E319C334410682" state=present
+
+- name: add repository for icingaweb2
+  apt_repository: repo="deb http://packages.icinga.org/ubuntu icinga-{{ ansible_distribution_release }} main"
+
+- name: refresh apt cache
+  apt: update_cache=yes
+
+- name: install icingaweb2 packages
+  apt: name=icingaweb2 state=present
+
+
+##
+## Database staff
+##
+- name: create database for icingaweb
+  mysql_db: name={{ icingaweb2_db_name }} state=present
+
+- name: create user for icingaweb database with appropriate rights
+  mysql_user: name={{ icingaweb2_db_user_name }} host=localhost state=present priv="{{ icingaweb2_db_name }}.*:ALL" password={{ icingaweb2_db_user_pw }} update_password=always
+
+- name: import icingaweb2 database schema
+  shell: mysql -s {{ icingaweb2_db_name }} < /usr/share/icingaweb2/etc/schema/mysql.schema.sql
+  args:
+    creates: /var/lib/mysql/{{ icingaweb2_db_name }}/icingaweb_user.frm
+      
+
+##
+## Icingaweb2 configuration staff
+##
+- name: generating password hash for icingaweb admin account
+  command: "openssl passwd -1 {{ icingaweb2_ui_admin_user_pw }}"
+  register: icingaweb2_admin_user_pw_hash
+  delegate_to: 127.0.0.1
+
+- name: check if icingaweb2 admin account is present
+  command: mysql -s -N -L -e "select name from {{ icingaweb2_db_name}}.icingaweb_user where name='{{ icingaweb2_ui_admin_user }}';"
+  register: icingaweb2_admin_account_present
+
+- name: create icingaweb2 admin user for admin access
+  command: mysql -s -N -L -e "use {{icingaweb2_db_name}}; INSERT INTO icingaweb_user (name, active, password_hash) VALUES ('{{ icingaweb2_ui_admin_user}}', 1, '{{ icingaweb2_admin_user_pw_hash.stdout }}')"
+  when: icingaweb2_admin_account_present is defined and icingaweb2_admin_account_present.stdout != '{{ icingaweb2_ui_admin_user }}'
+
+- name: updating instead of creating the icingaweb2 iadmin user for admin access
+  command: mysql -s -N -L -e "use {{icingaweb2_db_name}}; UPDATE icingaweb_user set password_hash='{{ icingaweb2_admin_user_pw_hash.stdout }}' WHERE name='{{icingaweb2_ui_admin_user}}';"
+  when: icingaweb2_admin_account_present is defined and icingaweb2_admin_account_present.stdout == '{{ icingaweb2_ui_admin_user }}'
+
+- name: create resource.ini for icingaweb2
+  file: path=/etc/icingaweb2/resources.ini state=touch owner=www-data group=icingaweb2 mode=660
+
+- name: add icinga2 ido resource 
+  ini_file: dest=/etc/icingaweb2/resources.ini option={{ item.option }} value={{ item.value }} state=present section="icinga_ido"
+  with_items:
+     - { option: 'type', value: '"db"' }
+     - { option: 'db', value: '"mysql"' }
+     - { option: 'host', value: "\"{{ icinga2_db_host }}\"" }
+     - { option: 'port', value: "\"{{ icinga2_db_port | default() }}\"" }
+     - { option: 'dbname', value: "\"{{ icinga2_db_name }}\"" }
+     - { option: 'username', value: "\"{{ icinga2_db_user_name }}\"" }
+     - { option: 'password', value: "\"{{ icinga2_db_user_pw }}\"" }
+     - { option: 'charset', value: "\"{{ icinga2_db_encoding }}\"" }
+     - { option: 'persistent', value: "\"{{ icinga2_db_persitent | default(0) }}\"" }
+
+- name: add icingaweb resource 
+  ini_file: dest=/etc/icingaweb2/resources.ini option={{ item.option }} value={{ item.value }} state=present section="icingaweb_db"
+  with_items:
+     - { option: 'type', value: '"db"' }
+     - { option: 'db', value: '"mysql"' }
+     - { option: 'host', value: "\"{{ icingaweb2_db_host }}\"" }
+     - { option: 'port', value: "\"{{ icingaweb2_db_port | default() }}\"" }
+     - { option: 'dbname', value: "\"{{ icingaweb2_db_name }}\"" }
+     - { option: 'username', value: "\"{{ icingaweb2_db_user_name }}\"" }
+     - { option: 'password', value: "\"{{ icingaweb2_db_user_pw }}\"" }
+     - { option: 'charset', value: "\"{{ icingaweb2_db_encoding }}\"" }
+     - { option: 'persistent', value: "\"{{ icingaweb2_db_persistent | default(0) }}\"" }
+
+- name: deploy config.ini for icingaweb2
+  copy: src=icingaweb2/config.ini dest=/etc/icingaweb2/config.ini owner=www-data group=icingaweb2 mode=660
+
+- name: deploy roles.ini for icingaweb2
+  template: src=icingaweb2_roles.ini dest=/etc/icingaweb2/roles.ini owner=www-data group=icingaweb2 mode=660
+
+- name: deploy groups.ini for icingaweb2
+  copy: src="icingaweb2/groups.ini" dest="/etc/icingaweb2/groups.ini" owner=www-data group=icingaweb2 mode=660
+
+- name: deploy authentication.ini for icingaweb2
+  copy: src="icingaweb2/authentication.ini" dest="/etc/icingaweb2/authentication.ini" owner=www-data group=icingaweb2 mode=660
+
+- name: enable AuthConfig in AllowOverride of Icingaweb2 
+  lineinfile: dest=/etc/apache2/conf-available/icingaweb2.conf regexp="(.*)AllowOverride.*" line="\1AllowOverride AuthConfig" backrefs=yes
+
+##
+## Icinga2 module MONITORING configuration
+##
+- name: change ownership of icingaweb2 module directory
+  file: dest="/etc/icingaweb2" state=directory owner=www-data group=icingaweb2 recurse=yes
+
+- name: create icingaweb2 monitoring module directory
+  file: dest="/etc/icingaweb2/modules/monitoring" state=directory owner=www-data group=icingaweb2 mode=770
+
+- name: activate icingaweb2 monitoring module 
+  command: icingacli module enable monitoring
+
+- name: deploy config.ini for monitoring module of icinga2
+  copy: src="icingaweb2/monitoring/config.ini" dest="/etc/icingaweb2/modules/monitoring/config.ini" owner=www-data group=icingaweb2 mode=660
+
+- name: deploy backends.ini for monitoring module of icinga2
+  copy: src=icingaweb2/monitoring/backends.ini dest=/etc/icingaweb2/modules/monitoring/backends.ini owner=www-data group=icingaweb2 mode=660
+
+- name: deploy commandtransports.ini for monitoring module of icinga2
+  copy: src=icingaweb2/monitoring/commandtransports.ini dest=/etc/icingaweb2/modules/monitoring/commandtransports.ini owner=www-data group=icingaweb2 mode=660
+
+##
+## Icinga2 module DOC 
+##
+- name: enable icingaweb2 module doc for browsing the documentation
+  command: icingacli module enable doc
+
+##
+## Icingaweb2 SETUP TOKEN
+##
+- name: generate a token for installation
+  command: icingacli setup token create
+
+- name: generate a token for installation
+  command: icingacli setup token show
+  register: icinga_token
+
+- debug: msg="Here ist your icinga token - {{ icinga_token.stdout }}"
+  when: icinga_token is defined

@@ -1,0 +1,126 @@
+---
+##
+## install all packages
+##
+- name: install graphite packages and dependencies
+  apt: name={{ item }} state=present
+  with_items:
+    - graphite-carbon
+    - graphite-web
+    - python-memcache
+    - libapache2-mod-wsgi
+    - python-ldap
+    - python-mysqldb
+    - python-pymysql
+
+##
+## carbon cache SETTINGS
+##
+- name: set interfaces and port of carbon daemon 
+  ini_file: dest="/etc/carbon/carbon.conf" section="cache" state=present option="{{item.option}}" value="{{item.value}}"
+  with_items:
+    - { option: "UDP_RECEIVER_INTERFACE", 	value: '{{ graphite_UDP_RECEIVER_INTERFACE }}' }
+    - { option: "UDP_RECEIVER_PORT", 		value: '{{ graphite_UDP_RECEIVER_PORT }}' }
+    - { option: "PICKLE_RECEIVER_INTERFACE", 	value: '{{ graphite_PICKLE_RECEIVER_INTERFACE }}' }
+    - { option: "PICKLE_RECEIVER_PORT", 	value: '{{ graphite_PICKLE_RECEIVER_PORT }}' }
+    - { option: "CACHE_QUERY_INTERFACE", 	value: '{{ graphite_CACHE_QUERY_INTERFACE }}' }
+    - { option: "CACHE_QUERY_PORT", 		value: '{{ graphite_CACHE_QUERY_PORT }}' }
+    - { option: "LINE_RECEIVER_INTERFACE", 	value: '{{ graphite_LINE_RECEIVER_INTERFACE }}' }
+    - { option: "LINE_RECEIVER_PORT", 		value: '{{ graphite_LINE_RECEIVER_PORT }}' }
+  notify: restart carbon-cache
+
+- name: enable graphite daemon at boot time and take care to start it
+  service: name=carbon-cache.service state=started enabled=yes
+ 
+- name: enable carbon for boot in /etc/default/
+  replace: dest=/etc/default/graphite-carbon regexp="^(CARBON_CACHE_ENABLED=).*" replace="\1true"
+
+##
+## graphite-web settings
+##
+- name: create mysql database for graphite-web
+  mysql_db: name={{ graphite_db_name }} state=present
+
+- name: create user for graphite database with appropriate rights
+  mysql_user: name={{ graphite_db_user_name }} host={{ graphite_db_host }} state=present priv="{{ graphite_db_name }}.*:ALL" password={{ graphite_db_user_pw }} update_password=always
+
+- name: copy graphite-web apache2 configuration to right place
+  copy: src=apache2-graphite.conf dest="/etc/apache2/conf-available/apache2-graphite.conf"
+  notify: restart Apache
+
+- name: enable wsgi apache2 module
+  apache2_module: state=present name={{ item }}
+  with_items:
+    - wsgi
+  notify:
+    - restart Apache
+
+- name: enable graphite-web apache2 configuration
+  command: a2enconf apache2-graphite.conf
+  args:
+    creates: /etc/apache2/conf-enabled/apache2-graphite.conf
+  notify: restart Apache
+
+- name: setup mysql database for graphite 
+  template: src=graphite_local_settings.py dest=/etc/graphite/local_settings.py
+
+- name: create graphite database schema with migrate instead of syncdb(which is marked as deprecated)
+  command: graphite-manage migrate 
+  ignore_errors: yes
+
+- name: create graphite database schema with migrate instead of syncdb(which is marked as deprecated)
+  command: graphite-manage migrate 
+  ignore_errors: yes
+
+- name: check if superuser account allready exists
+  shell: echo 'from django.contrib.auth.models import User; User.objects.get(username="{{ graphite_superuser }}", is_superuser=True);' | python /usr/bin/graphite-manage shell
+  register: graphite_superuseraccount
+
+- name: create in graphite database a superuser account
+  command: graphite-manage createsuperuser --username "{{ graphite_superuser }}" --noinput  --email "{{ graphite_superuser_email }}"
+  when: 'graphite_superuseraccount is defined and "User: {{ graphite_superuser }}" not in graphite_superuseraccount.stdout'
+
+- name: set password for graphite superuser account
+  command: echo ' from django.contrib.auth.models import User; User.objets.get(username="{{ graphite_superuser }}", is_superuser=True).set_password("{{ graphite_superuser_password }}").save()' | python /usr/bin/graphite-manage shell
+
+- name: deploy storage schema settings for internal icinga data
+  ini_file: dest="/etc/carbon/storage-schemas.conf" section="icinga_internals" option="{{ item.option}}" value="{{ item.value}}"
+  with_items:
+    - { option: "pattern", value: '^icinga\..*\.(max_check_attempts|reachable|current_attempt|execution_time|latency|state|state_type)' }
+    - { option: "retentions", value: "5m:7d" }
+
+- name: deploy storage schema settings for default icinga data
+  ini_file: dest="/etc/carbon/storage-schemas.conf" section="icinga_default" option="{{ item.option}}" value="{{ item.value}}"
+  with_items:
+    - { option: "pattern", value: '^icinga\.' }
+    - { option: "retentions", value: "1m:2d,5m:10d,30m:90d,360m:4y" }
+
+- name: clone icingaweb2 graphite module into icinga2 module path
+  git: repo=https://github.com/findmypast/icingaweb2-module-graphite dest=/usr/share/icingaweb2/modules/graphite
+
+- name: create config directory for icinga2 module director
+  file: path=/etc/icingaweb2/modules/graphite state=directory owner=www-data group=icingaweb2 mode=2770
+
+- name: setup graphite module in icingaweb2
+  ini_file: dest=/etc/icingaweb2/modules/graphite/config.ini backup=yes option={{ item.option }} value={{ item.value }} state=present section="graphite" create=yes
+  with_items:
+     #- { option: 'base_url', value: 'https://{{ ansible_fqdn }}:8000/render?' }
+     - { option: 'base_url', value: 'https://{{ ansible_fqdn }}:443/graphite/render?' }
+     - { option: 'host_name_template', value: 'icinga2.$host.name$.host.$host.check_command$.perfdata.$metric$.value' }
+     - { option: 'service_name_template', value: 'icinga2.$host.name$.services.$service.name$.$service.check_command$.perfdata.$metric$.value' }
+     - { option: 'graphite_args_template', value: '&target=$target$&source=0&width=300&height=120&hideAxes=false&lineWidth=2&hideLegend=true&colorList=049BAF&bgcolor=white&fgcolor=black' }
+     - { option: 'graphite_large_args_template', value: '&target=$target$&source=0&width=800&height=700&colorList=049BAF&lineMode=connected&bgcolor=black&fgcolor=gray' }
+
+- name: enable graphite module in icingaweb2 via icingacli
+  command: icingacli module enable graphite
+
+##
+## graphite icinga2 feature
+##
+- name: set configuration for icinga2 graphite feature
+  template: src=icinga2_graphite.conf dest=/etc/icinga2/features-available/graphite.conf
+  notify: restart Icinga2
+
+- name: enabling the graphite feature in icinga2
+  command: icinga2 feature enable graphite
+  notify: restart Icinga2

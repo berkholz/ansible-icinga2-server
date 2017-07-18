@@ -1,0 +1,101 @@
+---
+# install apache2
+- name: install apache2 default packages
+  apt: name={{ item }} state=present
+  with_items:
+    - apache2 
+    - apache2-utils
+
+# anabling modules
+- name: enable modules
+  apache2_module: state=present name={{ item }}
+  with_items:
+    - ssl
+    - rewrite
+    - alias
+  notify: restart Apache
+
+# deploy configs
+- name: deploy charset config
+  copy: src=charset.conf dest=/etc/apache2/conf-available/charset.conf
+  notify: restart Apache
+
+- name: deploy the security conf 
+  copy: src=security.conf dest=/etc/apache2/conf-available/security.conf
+  notify: restart Apache
+
+# disabling configs
+- name: disable other-vhosts-access-log.conf
+  command: a2disconf other-vhosts-access-log
+  register: disable_vhosts_conf
+  changed_when: disable_vhosts_conf.stdout != "Conf other-vhosts-access-log already disabled"
+  notify: restart Apache
+
+- name: disable localized-error-pages.conf
+  command: a2disconf localized-error-pages
+  register: disable_error_pages_conf
+  changed_when: disable_error_pages_conf.stdout != "Conf localized-error-pages already disabled"
+  notify: restart Apache
+
+- name: disable serve-cgi-bin.conf
+  command: a2disconf serve-cgi-bin
+  register: disable_cgi_conf
+  changed_when: disable_cgi_conf.stdout != "Conf serve-cgi-bin already disabled"
+  notify: restart Apache
+
+# enable configs
+- name: enable default security options
+  command: a2enconf security.conf
+  args:
+    creates: /etc/apache2/conf-enabled/security.conf
+  notify: restart Apache
+  
+- name: enable default charset options
+  command: a2enconf charset.conf
+  args:
+    creates: /etc/apache2/conf-enabled/charset.conf
+  notify: restart Apache
+
+# enabling ssl cert 
+- name: creating directory for ssl certs
+  file: dest=/etc/apache2/ssl/ state=directory owner=root mode=0750
+
+- name: create self-signed SSL cert
+  command: openssl req -new -nodes -x509 -subj "/C=DE/ST=Berlin/L=Berlin/O=Company/OU=Department/CN={{ ansible_fqdn }}" -days 3650 -keyout /etc/apache2/ssl/{{ ansible_fqdn }}.key -out /etc/apache2/ssl/{{ ansible_fqdn }}.cert -extensions v3_ca
+  args:
+    creates: /etc/apache2/ssl/{{ ansible_fqdn }}.cert
+
+# disabling vhosts
+- name: disable default 80 vhost 
+  command: a2dissite 000-default.conf
+  register: disable_default_vhost
+  changed_when: disable_default_vhost.stdout != "Site 000-default already disabled"
+  notify: restart Apache
+
+- name: disable default 443 vhost 
+  command: a2dissite default-ssl.conf
+  register: disable_default_ssl
+  changed_when: disable_default_ssl.stdout != "Site default-ssl already disabled"
+  notify: restart Apache
+
+# set up default vhosts
+- name: adding default vhost configuration for port 80
+  template: src=apache2_vhost_80.conf dest=/etc/apache2/sites-available/{{ ansible_fqdn }}.conf
+  notify: restart Apache
+
+- name: adding default vhost configuration for port 443
+  template: src=apache2_vhost_443.conf dest=/etc/apache2/sites-available/{{ ansible_fqdn }}-ssl.conf
+  notify: restart Apache
+
+- name: enable new default config for 80
+  command: a2ensite {{ ansible_fqdn }}.conf
+  args:
+    creates: /etc/apache2/sites-enabled/{{ ansible_fqdn }}.conf
+  notify: restart Apache
+
+- name: enable new default config for 443
+  command: a2ensite {{ ansible_fqdn }}-ssl.conf
+  args:
+    creates: /etc/apache2/sites-enabled/{{ ansible_fqdn }}-ssl.conf
+  notify: restart Apache
+

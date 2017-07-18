@@ -1,0 +1,6 @@
+---
+##
+## OpenSSH server
+## 
+- name: open ssh server is present and in latest version
+  apt: name=openssh-server state=latest

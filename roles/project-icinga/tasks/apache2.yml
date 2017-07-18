@@ -1,0 +1,29 @@
+---
+- name: enable apache2 modules for icinga
+  apache2_module: state=present name={{ item }}
+  with_items:
+    - rewrite
+    - dir
+  notify:
+    - restart Apache
+
+- name: check if standard web site is present
+  stat: path=/var/www/html
+  register: standard_website
+
+- name: remove standard web staff from debian
+  file: path=/var/www/html state=absent force=yes 
+  when: standard_website.stat.isdir is defined and standard_website.stat.isdir
+
+- name: create htaccess configuration for password protection
+  template: src=apache2_htaccess.conf dest=/etc/apache2/conf-available/htaccess.conf owner=root group=www-data mode=640
+
+- name: enable htaccess configuration
+  command: a2enconf htaccess.conf
+  notify: restart Apache
+
+- name: create htpasswd file for password protection and adding a standard user
+  htpasswd: dest=/etc/apache2/.htpasswd name="{{icinga2_apache2_htaccess_user}}" password="{{icinga2_apache2_htaccess_user_pw}}" owner=root group=www-data mode=0640 state=present
+
+- name: git clone icinga2 startpage from github.com/berkholz
+  git: repo='https://github.com/berkholz/icinga2-startpage.git' dest='/var/www' clone=yes

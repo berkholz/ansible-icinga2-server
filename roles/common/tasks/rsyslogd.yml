@@ -1,0 +1,16 @@
+---
+- name: checkif rsyslogd is installed
+  apt: pkg=rsyslog state=installed
+
+- name: check if rsyslogd is running
+  service: name=rsyslog state=started
+
+- name: deploy rsyslog configuration for various services
+  copy: src=rsyslog/{{ item }} dest=/etc/rsyslog.d/
+  with_items:
+    - 20-ufw.conf
+    - 30-cron.conf
+    - 30-php.conf
+    - 50-default.conf
+  notify: 
+    - restart rsyslog

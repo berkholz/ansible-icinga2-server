@@ -1,0 +1,51 @@
+---
+- include: ufw.yml
+
+- include: apache2.yml
+  tags:
+    - apache2
+
+- include: php.yml
+  tags:
+    - php
+
+- include: icinga2.yml
+  tags:
+    - icinga2
+
+- include: icingaweb2.yml
+  tags:
+    - icingaweb2
+
+- include: icinga2director.yml
+  tags:
+    - icinga2director
+
+- include: memcached.yml
+  tags:
+    - memcached
+
+- include: graphite.yml
+  tags:
+    - graphite
+
+- include: grafana.yml
+  tags:
+    - grafana
+
+
+###
+### DEAKTIVIERT solange der Bug nicht gefixed ist: https://github.com/ansible/ansible-modules-core/issues/4029
+#- name: clean all removeable packages
+#  apt: autoremove=yes
+
+- debug: msg="Icinga2 database password={{icinga2_db_user_pw}}"
+
+- debug: msg="Icingaweb2 database password ={{icingaweb2_db_user_pw}}" 
+
+- debug: msg="Icingaweb2 admin account password ={{icingaweb2_ui_admin_user_pw}}"
+
+- debug: msg="Icinga2director database password ={{icinga2director_db_user_pw}}"
+
+- debug: msg="Icinga2 graphite database password ={{graphite_db_user_pw}}"
+

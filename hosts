@@ -1,0 +1,42 @@
+# This is the default ansible 'hosts' file.
+#
+# It should live in /etc/ansible/hosts
+#
+#   - Comments begin with the '#' character
+#   - Blank lines are ignored
+#   - Groups of hosts are delimited by [header] elements
+#   - You can enter hostnames or ip addresses
+#   - A hostname/ip can be a member of multiple groups
+
+###
+### ROLE DESCRIPTIONS
+###
+
+## infos for the COMMON ROLE
+# for the common role exists one parameter to define the hostname of the host. That could be 
+# useful in scenarios where the hostname is not guessable or not calculatable by ansible variables.
+# For more informations please take a closer look at the main.yml in the directory roles/common/task/.
+# The following parameters are supported by the COMMON ROLE:
+# - hostname=icinga2
+
+## infos for the WEBSERVER ROLE
+# for the webserver role there have to be set some parameters for the host, e.g. 
+# setting the vhost configuration in a correct way
+# The following parameters are supported by the WEBSERVER ROLE:
+# - apache_vhost_aliases="icinga2 icinga2.berkholz.org" 
+# - apache_document_root="/var/www/icinga2" 
+
+###
+### HOSTS
+###
+
+localhost ansible_connection=local
+
+
+###
+### HOST GROUPS
+###
+
+[icinga_maschines]
+ubuntu.fritz.box apache_vhost_aliases="icinga2" apache_document_root="/var/www"
+# yourhostname.domain,tld apache_vhost_aliases="icinga2" apache_document_root="/var/www"

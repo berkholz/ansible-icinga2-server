@@ -1,0 +1,6 @@
+---
+- name: copy sudo permission for {{ admin_user }}
+  template: src=admin.sudoers dest=/etc/sudoers.d/admins
+
+- name: "add {{ admin_user }} to group sudo"
+  user: name="{{ admin_user }}" groups=sudo append=yes

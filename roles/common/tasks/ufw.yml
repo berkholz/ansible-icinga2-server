@@ -1,0 +1,6 @@
+---
+- name: install UFW
+  apt: pkg={{ item }} state=latest
+  with_items:
+    - ufw
+  register: ufw_installed

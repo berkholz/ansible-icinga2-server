@@ -1,0 +1,76 @@
+---
+##
+## install all packages
+##
+- name: install grafana packages and dependencies
+  apt: name={{ item }} state=present
+  with_items:
+    - adduser
+    - libfontconfig
+
+- name: create mysql database for grafana
+  mysql_db: name={{ grafana_db_name }} state=present
+
+- name: create user for grafana database with appropriate rights
+  mysql_user: name={{ grafana_db_user_name }} host={{ grafana_db_host }} state=present priv="{{ grafana_db_name }}.*:ALL" password={{ grafana_db_user_pw }} update_password=always
+
+- name: install non ubuntu deb package on icinga2 server beacuse ubuntu package is buggy -> no icons
+  apt: deb="https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana_4.4.1_amd64.deb" state=present update_cache=no install_recommends=yes
+
+##
+## GRAFANA SETTINGS
+##
+- name: set database settings for grafana
+  ini_file: dest="/etc/grafana/grafana.ini" section="{{item.section}}" state=present option="{{item.option}}" value="{{item.value}}" backup=yes
+  with_items:
+    - { section: "database",		option: "type", 		value: 'mysql' }
+    - { section: "database",		option: "host", 		value: '{{ grafana_db_host }}:{{ grafana_db_port }}' }
+    - { section: "database",		option: "name", 		value: '{{ grafana_db_name }}' }
+    - { section: "database",		option: "user", 		value: '{{ grafana_db_user_name }}' }
+    - { section: "database",		option: "password", 		value: '{{ grafana_db_user_pw }}' }
+    - { section: "analytics",		option: "reporting_enabled", 	value: 'false' }
+    - { section: "security",		option: "admin_user", 		value: '{{ grafana_admin_user_name }}' }
+    - { section: "security",		option: "admin_password", 	value: '{{ grafana_admin_user_pw }}' }
+    - { section: "security",		option: "secret_key", 		value: '{{ grafana_secret_key }}' }
+    - { section: "security",		option: "disable_gravatar", 	value: 'true' }
+    - { section: "server",		option: "root_url", 		value: 'https://%(domain)s:443/grafana/' }
+    - { section: "server",		option: "protocol", 		value: 'http' }
+    - { section: "server",		option: "http_addr", 		value: '127.0.0.1' }
+    - { section: "server",		option: "http_port", 		value: '3000' }
+    - { section: "server",		option: "enable_gzip", 		value: 'false' }
+    - { section: "users",		option: "auto_assign_org", 	value: 'true' }
+    - { section: "users",		option: "allow_sign_up", 	value: 'false' }
+    - { section: "users",		option: "allow_org_create", 	value: 'false' }
+    - { section: "users",		option: "auto_assign_org_role", value: 'Viewer' }
+    - { section: "users",		option: "login_hint", 		value: 'email or username' }
+    - { section: "auth.anonymous",	option: "enabled", 		value: 'false' }
+    - { section: "smtp",		option: "enabled", 		value: 'true' }
+    - { section: "smtp",		option: "host", 		value: '{{ grafana_mail_host }}' }
+    - { section: "smtp",		option: "user", 		value: '{{ grafana_mail_user }}' }
+    - { section: "smtp",		option: "password", 		value: '{{ grafana_mail_password }}' }
+    - { section: "smtp",		option: "cert_file", 		value: '{{ grafana_mail_cert_file }}' }
+    - { section: "smtp",		option: "key_file", 		value: '{{ grafana_mail_key_file }}' }
+    - { section: "smtp",		option: "skip_verify", 		value: '{{ grafana_mail_skip_verify }}' }
+    - { section: "smtp",		option: "from_address",		value: '{{ grafana_mail_from_address }}' }
+  notify: restart grafana
+
+- name: add proxy rule to apache2 to hide grafana behind apache
+  template: src=apache2_proxy.conf dest=/etc/apache2/conf-available/proxy.conf owner=root group=www-data mode=0640 
+
+- name: enable apache2 proxy configuration
+  command: a2enconf proxy.conf
+  notify: restart Apache
+
+- name: enable apache proxy module 
+  command: a2enmod proxy
+  notify: restart Apache
+
+- name: enable apache proxy module 
+  command: a2enmod proxy_http
+  notify: restart Apache
+
+##
+## Systemd Settigns
+##
+- name: reloading the systemd configuration, anabling and starting the grafana-server
+  systemd: daemon_reload=yes name=grafana-server enabled=yes state=started

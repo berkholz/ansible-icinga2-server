@@ -1,0 +1,84 @@
+
+## APCHE2 settings
+icinga2_apache2_htaccess_user: "view"
+icinga2_apache2_htaccess_user_pw: "{{ lookup('password', '/tmp/icinga2_apache2_htaccess_user_pw length=15') }}"
+
+
+## MAIL SERVER SETTINGS
+icinga2_mail_servername: "localhost"
+icinga2_mail_serverport: "25"
+icinga2_mail_from_address: "icinga2@{{ ansible_fqdn }}"
+
+
+## icinga2 ido db settings
+icinga2_db_name: icinga2
+icinga2_db_host: localhost
+icinga2_db_user_name: icinga2
+# CHANGE DEFAULT PASSWORD
+icinga2_db_user_pw: "{{ lookup('password', '/tmp/icinga2_db_user_pw length=15') }}"
+icinga2_db_encoding: utf8
+
+## icingaweb2 db settings
+icingaweb2_db_name: icingaweb2
+icingaweb2_db_host: localhost
+icingaweb2_db_user_name: icingaweb2
+# CHANGE DEFAULT PASSWORD
+icingaweb2_db_user_pw: "{{ lookup('password', '/tmp/icingaweb2_db_user_pw length=15') }}"
+icingaweb2_db_encoding: utf8
+
+## icingaweb2 setting
+icingaweb2_ui_admin_user: "icingaadmin"
+icingaweb2_ui_admin_user_pw: "{{ lookup('password', '/tmp/icingaweb2_ui_admin_user_pw length=15') }}"
+
+## icinga2 director module db settings
+icinga2director_db_name: icinga2director
+icinga2director_db_host: localhost
+icinga2director_db_user_name: icinga2director
+# CHANGE DEFAULT PASSWORD
+icinga2director_db_user_pw: "{{ lookup('password', '/tmp/icinga2director_db_user_pw length=15') }}"
+icinga2director_db_encoding: utf8
+
+## graphite settings
+graphite_db_name: icinga2graphite
+graphite_db_host: localhost
+graphite_db_port: 3306
+graphite_db_user_name: icinga2graphite
+graphite_db_user_pw: "{{ lookup('password', '/tmp/icinga2graphite_db_user_pw length=15') }}"
+graphite_db_encoding: utf8
+
+graphite_superuser: "{{ icingaweb2_ui_admin_user }}"
+graphite_superuser_password: "{{ lookup('password', '/tmp/icinga2graphite_superuser_pw length=15') }}"
+graphite_superuser_email: "{{ admin_mail }}"
+
+graphite_UDP_RECEIVER_INTERFACE: "127.0.0.1"
+graphite_UDP_RECEIVER_PORT: "2003"
+graphite_PICKLE_RECEIVER_INTERFACE: "127.0.0.1"
+graphite_PICKLE_RECEIVER_PORT: "2004"
+graphite_CACHE_QUERY_INTERFACE: "127.0.0.1"
+graphite_CACHE_QUERY_PORT: "7002"
+graphite_LINE_RECEIVER_INTERFACE: "127.0.0.1"
+graphite_LINE_RECEIVER_PORT: "2003"
+
+graphite_web_TIMEZONE: "Europe/Berlin"
+
+## grafana settings
+# grafana db settings
+grafana_db_name: icinga2grafana
+grafana_db_host: localhost
+grafana_db_port: 3306
+grafana_db_user_name: icinga2grafana
+grafana_db_user_pw: "{{ lookup('password', '/tmp/icinga2grafana_db_user_pw length=15') }}"
+grafana_db_encoding: utf8
+grafana_admin_user_name: admin
+grafana_admin_user_pw: "{{ lookup('password', '/tmp/icinga2grafana_admin_user_pw length=15') }}"
+grafana_secret_key: "{{ lookup('password', '/tmp/icinga2grafana_secret_key length=15') }}"
+# grafana mail server settings
+grafana_mail_enabled: "false"
+grafana_mail_host: "localhost:25"
+grafana_mail_user:
+grafana_mail_password:
+grafana_mail_cert_file:
+grafana_mail_key_file:
+grafana_mail_skip_verify: false
+grafana_mail_from_address: "grafana@{{ ansible_fqdn }}"
+

@@ -1,0 +1,17 @@
+---
+- name: deploy ssh-keys for all users specified in host_vars
+  authorized_key: "user={{ item.0.name }} key='{{ item.1 }}' state=present"
+  with_subelements:
+    - "{{ ssh_users_allowed }}"
+    - authorized
+  tags:
+    - ssh-keys
+
+- name: delete ssh-keys for all users specified in host_vars
+  authorized_key: "user={{ item.0.name }} key='{{ item.1 }}' state=absent"
+  with_subelements:
+    - "{{ ssh_users_denied }}"
+    - authorized
+  tags:
+    - ssh-keys
+

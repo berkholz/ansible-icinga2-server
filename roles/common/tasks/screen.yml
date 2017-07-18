@@ -1,0 +1,10 @@
+---
+##
+## screen staff
+##
+- name: copy default screen config for user root 
+  copy: src=.screenrc dest=/root/.screenrc owner=root group=root mode=644 
+
+- name: copy default screen config for user {{ admin_user }}
+  copy: src=.screenrc dest=/home/{{ admin_user }}/.screenrc owner={{ admin_user }} group={{ admin_user }} mode=644 
+  ignore_errors: True

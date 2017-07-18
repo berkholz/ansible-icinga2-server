@@ -1,0 +1,15 @@
+---
+#- name: enable UFW and setting default policy for incoming to allow
+#  ufw: state=enabled direction=incoming policy=allow
+
+- name: allow ssh 
+  ufw: rule=allow direction=in proto=tcp src={{ item }} dest=any to_port=22
+  with_items:
+    - 192.168.0.0/16 
+
+- name: allow http and https for everyone
+  ufw: rule=allow proto=tcp direction=in src=any dest=any to_port=80,443
+
+- name: change default policy incoming to deny
+  ufw: state=enabled direction=incoming policy=deny
+

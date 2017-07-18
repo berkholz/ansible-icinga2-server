@@ -1,0 +1,15 @@
+#ssh_users_allowed:
+#  - name: {{ admin_user }}
+#    authorized:
+#      - "{{ lookup('file', 'files/pubkeys/dummy.pub') }}"
+#  - name: root
+#    authorized:
+#      - "{{ lookup('file', 'files/pubkeys/dummy.pub') }}"
+#
+#ssh_users_denied:
+#  - name: {{ admin_user }}
+#    authorized:
+#      - "{{ lookup('file', 'files/pubkeys/dummy.pub') }}"
+#  - name: root
+#    authorized:
+#      - "{{ lookup('file', 'files/pubkeys/dummy.pub') }}"

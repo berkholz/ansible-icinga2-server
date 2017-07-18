@@ -1,0 +1,6 @@
+---
+- name: install memcached
+  apt: name=memcached state=latest
+
+- name: memcached should be started, also at boot time
+  service: name=memcached state=started enabled=yes

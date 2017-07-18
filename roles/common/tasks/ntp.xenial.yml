@@ -1,0 +1,15 @@
+---
+##
+## that's the way systemd does NTP
+##
+- name: ensure systemd-timesyncd.service is running
+  service: state=started name=systemd-timesyncd.service enabled=yes
+
+- name: configure time servers
+  ini_file: dest=/etc/systemd/timesyncd.conf section=Time option={{ item.option }} value={{ item.value }}
+  with_items:
+    - { option: 'NTP', value: '0.de.pool.ntp.org' }
+    - { option: 'FallbackNTP', value: '1.de.pool.ntp.org' }
+  notify:
+    - restart systemd-timesyncd.service
+

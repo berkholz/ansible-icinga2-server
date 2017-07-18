@@ -1,0 +1,4 @@
+APT::Periodic::AutocleanInterval "7";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::Unattended-Upgrade "{{ 1 if apt.upgrade else 0 }}";
+APT::Periodic::Update-Package-Lists "1";

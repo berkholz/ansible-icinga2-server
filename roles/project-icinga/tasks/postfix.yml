@@ -1,0 +1,10 @@
+---
+##
+## install all packages
+##
+- name: install postfix packages and dependencies
+  apt: name={{ item }} state=present
+  with_items:
+    - postfix
+
+

@@ -1,0 +1,10 @@
+---
+# root should be able to login via ssh
+- name: set PermitRootLogin to no
+  replace: dest=/etc/ssh/sshd_config regexp='^(PermitRootLogin).*$' replace='\1 no'
+
+- name: create .ssh directory for root for storing authorized_keys file in it
+  file: path=/root/.ssh state=directory mode=0750 owner=root
+
+- name: create .ssh directory for {{ admin_user }} for storing authorized_keys file in it
+  file: path=/home/{{ admin_user }}/.ssh state=directory mode=0750 owner={{ admin_user }}

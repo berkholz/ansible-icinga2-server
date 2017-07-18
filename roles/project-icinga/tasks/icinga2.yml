@@ -1,0 +1,89 @@
+---
+- name: add icinga ppa to apt sources
+  apt_repository: repo='ppa:formorer/icinga'
+
+- name: refresh apt cache
+  apt: update_cache=yes
+
+- name: install icinga2 packages
+  apt: name=icinga2 state=present
+
+- name: install check plugins
+  apt: name=nagios-plugins state=latest
+
+- name: enable icinga start at boot time and take care to start icinga2
+  service: name=icinga2 state=started enabled=yes
+
+- name: install package for syntax highlighting in vim for icinga config files
+  apt: name={{ item }} state=latest
+  with_items:
+    - vim-icinga2
+    - vim-addon-manager
+
+- name: enabled syntax highlighting in vim
+  command: vim-addon-manager -w install icinga2
+
+- name: install mysql server
+  apt: name={{ item }} state=latest
+  with_items:
+    - mysql-server 
+    - mysql-client
+
+##
+## IDO DB staff
+##
+- name: install icinga2-ido-mysql as database backend
+  apt: name=icinga2-ido-mysql state=present
+
+- name: create database for icinga 
+  mysql_db: name={{ icinga2_db_name }} state=present
+
+- name: create user for icinga database with appropriate rights
+  mysql_user: name={{ icinga2_db_user_name }} host={{ icinga2_db_host }} state=present priv="{{ icinga2_db_name }}.*:ALL" password={{ icinga2_db_user_pw }} update_password=always
+
+- name: check if ido db schema was allready imported
+  command: mysql -e "use {{ icinga2_db_name }}; show tables;" -s -r
+  register: show_tables_output
+
+- name: import structure into ido db database for icigna
+  mysql_db: name={{ icinga2_db_name }} state=import target=/usr/share/icinga2-ido-mysql/schema/mysql.sql login_user={{ icinga2_db_user_name }} login_password={{icinga2_db_user_pw }}
+  when: show_tables_ouput is defined and show_tables_ouput.stdout == "" 
+
+- name: enabling the ido db mysql module in icinga2
+  command: icinga2 feature enable ido-mysql
+  notify: restart Icinga2
+
+- name: change database settings for ido-mysql - password
+  replace: dest="/etc/icinga2/features-available/ido-mysql.conf" regexp='(.*password =).*$' replace="\1 \"{{ icinga2_db_user_pw }}\"," backup=yes
+
+- name: change database settings for ido-mysql - username
+  replace: dest="/etc/icinga2/features-available/ido-mysql.conf" regexp='(.*user =).*$' replace="\1 \"{{ icinga2_db_user_name }}\"," backup=yes
+
+- name: change database settings for ido-mysql - databasename
+  replace: dest="/etc/icinga2/features-available/ido-mysql.conf" regexp='(.*database =).*$' replace="\1 \"{{ icinga2_db_name }}\"," backup=yes
+
+- name: change database settings for ido-mysql - host
+  replace: dest="/etc/icinga2/features-available/ido-mysql.conf" regexp='(.*host =).*$' replace="\1 \"{{ icinga2_db_host }}\"," backup=yes
+
+##
+## command icinga2 feature
+##
+- name: enabling the command module in icinga2
+  command: icinga2 feature enable command
+  notify: restart Icinga2
+
+- name: setup the api feature of icinga2 only when no setup was done
+  command: icinga2 api setup
+  args:
+    creates: /var/lib/icinga2/ca/ca.key
+  notify: restart Icinga2
+
+#- name: change bind_host of ApiListener to localhost
+#  lineinfile: dest="/etc/icinga2/features-available/api.conf" insertbefore="}" line="  bind_host = \"127.0.0.1\"" state=present
+
+- name: generate locales for germans
+  locale_gen: name={{ item }} state=present
+  with_items:
+    - de_DE
+    - de_DE.UTF-8
+    - en_US.UTF-8

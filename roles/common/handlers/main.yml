@@ -1,0 +1,6 @@
+---
+- name: restart systemd-timesyncd.service
+  service: name=systemd-timesyncd.service state=restarted
+
+- name: restart rsyslog
+  service: name=rsyslog state=restarted

@@ -1,0 +1,23 @@
+---
+##
+## BASH staff
+##
+- name: install bash 
+  apt: pkg={{ item }} state=latest
+  with_items:
+    - bash
+    - bash-doc
+
+- name: copy aliases file to home of user root
+  copy: src=.bash_aliases dest=/root/.bash_aliases owner=root group=root mode=644
+
+- name: create script directory
+  file: path=/Scripts/ state=directory mode=770 recurse=no owner=root group=sudo
+
+- name: change owner and permissions for skripte files
+  file: path=/Scripts/ state=directory mode=770 recurse=yes owner=root group=sudo
+
+#- name: copy scripts in script directory
+#  copy: src={{ item }} dest=/Scripts/ owner=root group=sudo mode=770
+#  with_items:
+#    - 

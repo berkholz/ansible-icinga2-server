@@ -1,0 +1,7 @@
+ssh_pubkeys:
+  berkholz: "{{ lookup('file', 'files/pubkeys/berkholz.pub') }}" 
+
+admin_user: badmin
+
+admin_mail: webmaster@berkholz.org
+

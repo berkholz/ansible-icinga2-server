@@ -1,0 +1,4 @@
+AuthType Basic
+AuthName "Administrations-Bereich"
+AuthUserFile    /etc/apache2/htpasswd.users
+Require valid-user view
